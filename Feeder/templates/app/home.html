@@ -1,0 +1,31 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <h2>Welcome to Feed and Connect</h2>
+    
+    <div class="pet-feeder-description">
+        <h3>About Our Pet Feeder</h3>
+        {% comment %}
+        <!-- Add your pet feeder description here -->
+        <p>This is where you can add detailed information about the pet feeder, including its features, benefits, and how it works.</p>
+        <p>You can describe the technology used, the convenience it offers, and why it's the perfect solution for pet owners.</p>
+        {% endcomment %}
+    </div>
+    
+    <div class="features">
+        <h3>Key Features</h3>
+        <ul>
+            <li>Adjustable portion control</li>
+            <li>Scheduled feeding times</li>
+            <li>Feeding history tracking</li>
+            <li>Pet BMI monitoring</li>
+        </ul>
+    </div>
+    
+    <div class="get-started">
+        <h3>Get Started</h3>
+        <p>Click <a href="{% url 'feed_control' %}">here</a> to start feeding your pet.</p>
+    </div>
+{% endblock %}

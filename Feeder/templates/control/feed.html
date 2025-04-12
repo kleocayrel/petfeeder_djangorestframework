@@ -1,0 +1,134 @@
+{% extends 'app/base.html' %}
+{% load static %}
+
+{% block title %}Petfeeder Controller{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white text-center">
+            <h1 class="h3 mb-0">Petfeeder Controller</h1>
+        </div>
+        <div class="card-body">
+            <div class="date-display mb-3">
+                <h5>Current Date and Time:</h5>
+                <p id="current-datetime" class="h5 text-primary"></p>
+            </div>
+        </div>
+    </div>
+
+    {% if message %}
+    <div class="alert {% if 'Error' in message or 'Failed' in message %}alert-danger{% else %}alert-success{% endif %}">
+        {{ message }}
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0">Portion Control & Manual Feeding</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" class="feeding-form" name="manual-feed-form">
+                {% csrf_token %}
+                <div class="form-group mb-3">
+                    <label for="manual-portion" class="form-label">Portion Size (1-10):</label>
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range" id="manual-portion" name="portion" min="1" max="10" value="5" required>
+                        <span id="manual-portion-value" class="ms-2 badge bg-primary">5</span>
+                        <span class="ms-1">portion(s)</span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Feed Now</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h2 class="h5 mb-0">Schedule Feeding</h2>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Set up automatic feeding schedules for your pet - perfect for travelers and busy pet owners!</p>
+            <form method="post" class="feeding-form" name="schedule-feed-form">
+                {% csrf_token %}
+                <div class="form-group mb-3">
+                    <label for="schedule-time" class="form-label">Feeding Time:</label>
+                    <input type="time" class="form-control" id="schedule-time" name="time" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="schedule-portion" class="form-label">Portion Size (1-10):</label>
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range" id="schedule-portion" name="portion" min="1" max="10" value="5" required>
+                        <span id="schedule-portion-value" class="ms-2 badge bg-success">5</span>
+                        <span class="ms-1">portion(s)</span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success w-100">Add Schedule</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h3 class="h5 mb-0">Schedule List</h3>
+        </div>
+        <div class="card-body">
+            <ul class="list-group">
+                {% for s in schedules %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-clock me-2"></i>
+                        <span>{{ s.time }}</span>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">{{ s.portion }} portion(s)</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No scheduled feedings yet.
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/feed_control.js' %}"></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .date-display {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+  }
+  
+  .feeding-form {
+    background-color: #f0f8ff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .portion-control, .schedule-control {
+    margin-bottom: 15px;
+  }
+  
+  .feed-button, .schedule-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .schedule-list {
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+  }
+</style>
+{% endblock %}

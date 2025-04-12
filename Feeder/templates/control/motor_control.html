@@ -1,0 +1,351 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Motor Control{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>ESP8266 Motor Control</h1>
+  
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h2 class="h5 mb-0">Device Configuration</h2>
+    </div>
+    <div class="card-body">
+      <form id="esp8266-config-form">
+        <div class="form-group row mb-3">
+          <label for="device-name" class="col-sm-3 col-form-label">Device Name:</label>
+          <div class="col-sm-9">
+            <input type="text" class="form-control" id="device-name" name="name" placeholder="Pet Feeder">
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <label for="device-ip" class="col-sm-3 col-form-label">IP Address:</label>
+          <div class="col-sm-9">
+            <input type="text" class="form-control" id="device-ip" name="ip_address" placeholder="192.168.1.100">
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <label for="device-port" class="col-sm-3 col-form-label">Port:</label>
+          <div class="col-sm-9">
+            <input type="number" class="form-control" id="device-port" name="port" value="80">
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <div class="col-sm-3">Active:</div>
+          <div class="col-sm-9">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="device-active" name="is_active">
+              <label class="form-check-label" for="device-active">
+                Device is active
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group row">
+          <div class="col-sm-9 offset-sm-3">
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+            <button type="button" id="test-connection" class="btn btn-secondary">Test Connection</button>
+          </div>
+        </div>
+      </form>
+      <div id="connection-status" class="mt-3"></div>
+    </div>
+  </div>
+  
+  <div class="card mb-4">
+    <div class="card-header bg-success text-white">
+      <h2 class="h5 mb-0">Motor Control</h2>
+    </div>
+    <div class="card-body">
+      <form id="motor-control-form">
+        <div class="form-group row mb-3">
+          <label for="motor-steps" class="col-sm-3 col-form-label">Steps:</label>
+          <div class="col-sm-9">
+            <input type="number" class="form-control" id="motor-steps" name="steps" value="200">
+            <small class="form-text text-muted">Number of steps to move</small>
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <label for="motor-direction" class="col-sm-3 col-form-label">Direction:</label>
+          <div class="col-sm-9">
+            <select class="form-control" id="motor-direction" name="direction">
+              <option value="clockwise">Clockwise</option>
+              <option value="counterclockwise">Counterclockwise</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <label for="motor-speed" class="col-sm-3 col-form-label">Speed:</label>
+          <div class="col-sm-9">
+            <input type="number" class="form-control" id="motor-speed" name="speed" value="1000">
+            <small class="form-text text-muted">Steps per second</small>
+          </div>
+        </div>
+        <div class="form-group row mb-3">
+          <label for="motor-microstepping" class="col-sm-3 col-form-label">Microstepping:</label>
+          <div class="col-sm-9">
+            <select class="form-control" id="motor-microstepping" name="microstepping">
+              <option value="1">Full Step (1)</option>
+              <option value="2">Half Step (1/2)</option>
+              <option value="4">Quarter Step (1/4)</option>
+              <option value="8">Eighth Step (1/8)</option>
+              <option value="16" selected>Sixteenth Step (1/16)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group row">
+          <div class="col-sm-9 offset-sm-3">
+            <button type="submit" class="btn btn-success">Send Command</button>
+          </div>
+        </div>
+      </form>
+      <div id="motor-status" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Load ESP8266 configuration on page load
+    loadESP8266Config();
+    
+    // ESP8266 Configuration Form Submit
+    document.getElementById('esp8266-config-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      saveESP8266Config();
+    });
+    
+    // Test Connection Button
+    document.getElementById('test-connection').addEventListener('click', function() {
+      testESP8266Connection();
+    });
+    
+    // Motor Control Form Submit
+    document.getElementById('motor-control-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      sendMotorCommand();
+    });
+  });
+  
+  // Load ESP8266 configuration from the server
+  function loadESP8266Config() {
+    fetch('/api/esp8266/')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('device-name').value = data.name || '';
+        document.getElementById('device-ip').value = data.ip_address || '';
+        document.getElementById('device-port').value = data.port || 80;
+        document.getElementById('device-active').checked = data.is_active || false;
+        
+        const statusDiv = document.getElementById('connection-status');
+        if (data.last_connected) {
+          statusDiv.innerHTML = `<div class="alert alert-info">Last connected: ${new Date(data.last_connected).toLocaleString()}</div>`;
+        } else {
+          statusDiv.innerHTML = `<div class="alert alert-warning">Device has never connected</div>`;
+        }
+      })
+      .catch(error => {
+        console.error('Error loading ESP8266 configuration:', error);
+        document.getElementById('connection-status').innerHTML = 
+          `<div class="alert alert-danger">Error loading configuration: ${error.message}</div>`;
+      });
+  }
+  
+  // Save ESP8266 configuration to the server
+  function saveESP8266Config() {
+    const formData = {
+      name: document.getElementById('device-name').value,
+      ip_address: document.getElementById('device-ip').value,
+      port: parseInt(document.getElementById('device-port').value),
+      is_active: document.getElementById('device-active').checked
+    };
+    
+    fetch('/api/esp8266/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById('connection-status').innerHTML = 
+        `<div class="alert alert-success">Configuration saved successfully</div>`;
+    })
+    .catch(error => {
+      console.error('Error saving ESP8266 configuration:', error);
+      document.getElementById('connection-status').innerHTML = 
+        `<div class="alert alert-danger">Error saving configuration: ${error.message}</div>`;
+    });
+  }
+  
+  // Test connection to the ESP8266 device
+  function testESP8266Connection() {
+    const statusDiv = document.getElementById('connection-status');
+    statusDiv.innerHTML = `<div class="alert alert-info">Testing connection...</div>`;
+    
+    const ip = document.getElementById('device-ip').value;
+    const port = document.getElementById('device-port').value;
+    
+    if (!ip) {
+      statusDiv.innerHTML = `<div class="alert alert-danger">Please enter an IP address</div>`;
+      return;
+    }
+    
+    // Send a test motor command with minimal steps
+    fetch('/api/motor/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        steps: 1,
+        direction: 'clockwise',
+        speed: 1000,
+        microstepping: '16'
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        statusDiv.innerHTML = `<div class="alert alert-success">Connection successful!</div>`;
+      } else {
+        statusDiv.innerHTML = `<div class="alert alert-danger">Connection failed: ${data.message}</div>`;
+      }
+    })
+    .catch(error => {
+      console.error('Error testing connection:', error);
+      statusDiv.innerHTML = `<div class="alert alert-danger">Connection failed: ${error.message}</div>`;
+    });
+  }
+  
+  // Send motor control command to the ESP8266
+  function sendMotorCommand() {
+    const statusDiv = document.getElementById('motor-status');
+    statusDiv.innerHTML = `<div class="alert alert-info">Sending command...</div>`;
+    
+    const formData = {
+      steps: parseInt(document.getElementById('motor-steps').value),
+      direction: document.getElementById('motor-direction').value,
+      speed: parseInt(document.getElementById('motor-speed').value),
+      microstepping: document.getElementById('motor-microstepping').value
+    };
+    
+    fetch('/api/motor/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        statusDiv.innerHTML = `<div class="alert alert-success">Command sent successfully!</div>`;
+      } else {
+        statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.message}</div>`;
+      }
+    })
+    .catch(error => {
+      console.error('Error sending motor command:', error);
+      statusDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    });
+  }
+  
+  // Helper function to get CSRF token from cookies
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+
+<style>
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .card {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .card-header {
+    padding: 15px 20px;
+  }
+  
+  .card-body {
+    padding: 20px;
+  }
+  
+  .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+  }
+  
+  .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+    margin-left: 10px;
+  }
+  
+  .btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+  }
+  
+  .alert {
+    padding: 12px 15px;
+    border-radius: 4px;
+    margin-top: 15px;
+  }
+  
+  .alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+  }
+  
+  .alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+  }
+  
+  .alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+  }
+  
+  .alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+  }
+</style>
+{% endblock %}
